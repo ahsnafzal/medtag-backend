@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Thank You for Contacting Us</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background: #175635;
+            padding: 15px;
+            text-align: center;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .content {
+            padding: 20px;
+            text-align: left;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .content p {
+            margin: 10px 0;
+        }
+
+        .footer {
+            margin-top: 20px;
+            padding: 15px;
+            background: #eee;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .footer a {
+            color: #175635;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">Thank You for Reaching Out!</div>
+        <div class="content">
+            <p>Dear <strong>{{ firstname }} {{ lastname }}</strong>,</p>
+            <p>We appreciate you contacting us. Your message has been received, and our team will get back to you as
+                soon as possible.</p>
+            <p><strong>Your Submitted Details:</strong></p>
+            <ul>
+                <li><strong>Name:</strong> {{ firstname }} {{ lastname }}</li>
+                <li><strong>Email:</strong> {{ email }}</li>
+                <li><strong>Message:</strong> {{ message }}</li>
+            </ul>
+            <p>We will review your inquiry and get back to you within 24-48 hours.</p>
+            <p>Best regards,</p>
+            <p><strong>MedTag Support Team</strong></p>
+        </div>
+        <div class="footer">
+            &copy; 2024 MedTag. All rights reserved. |
+            <a href="https://medtag.app">Visit Our Website</a>
+        </div>
+    </div>
+</body>
+
+</html>
