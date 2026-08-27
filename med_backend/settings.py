@@ -9,6 +9,10 @@ import os
 from datetime import timedelta
 from decouple import config
 
+from med_backend.py314_django_fix import apply as _apply_python314_django_fix
+
+_apply_python314_django_fix()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -17,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-l8=o0rj9283nukx-7#5#=w@xrhkklx*f*m$u44(_gmh1p%#3h)'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -28,6 +32,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne', ## for making live calls
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -37,9 +42,12 @@ INSTALLED_APPS = [
     'storages',
     'rest_framework',
     'accounts',
+    'payments',
     'medtag',
+    'ai',
     #'rest_framework.authtoken',
     'corsheaders', # Required for CORS
+    'channels', ## for making live calls 
     #'allauth',
     #'allauth.account',
 
@@ -123,8 +131,27 @@ AUTHENTICATION_BACKENDS = [
 
 WSGI_APPLICATION = 'med_backend.wsgi.application'
 
+#for making live calls 
+ASGI_APPLICATION = 'med_backend.asgi.application'
+if DEBUG:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [("127.0.0.1", 6379)],
+            },
+        },
+    }
 
-# Database
+
+
+# Database (PostgreSQL via psycopg3 — works on Python 3.14+ where psycopg2 wheels may be unavailable)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -198,6 +225,59 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- STRIPE SETTINGS ---
+import stripe
+STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='')
+STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default='')
+STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default='')
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+stripe.api_key = STRIPE_SECRET_KEY
+
+# Sandbox JazzCash/EasyPaisa (OTP-based; mirrors Stripe-style test flows)
+# Disable in production unless you intentionally run integration tests against these endpoints.
+def _truthy_setting(value):
+    return str(value).strip().lower() in ('true', '1', 'yes', 'on')
+
+
+WALLET_PAYMENT_SANDBOX = _truthy_setting(
+    config('WALLET_PAYMENT_SANDBOX', default='True' if DEBUG else 'False')
+)
+WALLET_SANDBOX_OTP = config('WALLET_SANDBOX_OTP', default='4242')
+
+# --- JazzCash (HTTP POST page redirect checkout) ---
+# Put credentials ONLY in environment / .env (never commit real secrets).
+
+PUBLIC_BASE_URL = config('PUBLIC_BASE_URL', default='http://127.0.0.1:8000')
+
+JAZZCASH_TEST_MODE = _truthy_setting(
+    config('JAZZCASH_TEST_MODE', default='True' if DEBUG else 'False')
+)
+JAZZCASH_MERCHANT_ID = config('JAZZCASH_MERCHANT_ID', default='').strip()
+JAZZCASH_MERCHANT_PASSWORD = config('JAZZCASH_MERCHANT_PASSWORD', default='')
+JAZZCASH_INTEGRITY_SALT = config('JAZZCASH_INTEGRITY_SALT', default='')
+
+JAZZCASH_USD_TO_PKR_RATE = config('JAZZCASH_USD_TO_PKR_RATE', default='278.00')
+
+JAZZCASH_SANDBOX_PAYMENT_POST_URL = config(
+    'JAZZCASH_SANDBOX_PAYMENT_POST_URL',
+    default='https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform/',
+)
+JAZZCASH_PRODUCTION_PAYMENT_POST_URL = config(
+    'JAZZCASH_PRODUCTION_PAYMENT_POST_URL',
+    default='https://payments.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform/',
+)
+
+JAZZCASH_PAY_SIGNING_SALT = config('JAZZCASH_PAY_SIGNING_SALT', default='medtag-jazzcash-pay')
+try:
+    JAZZCASH_PAY_LINK_MAX_AGE_SECONDS = int(config('JAZZCASH_PAY_LINK_MAX_AGE_SECONDS', default='3600'))
+except ValueError:
+    JAZZCASH_PAY_LINK_MAX_AGE_SECONDS = 3600
+
+JAZZCASH_RESULT_FRONTEND_URL = config(
+    'JAZZCASH_RESULT_FRONTEND_URL',
+    default='',
+)
 
 # Email Settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

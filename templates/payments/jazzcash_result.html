@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Payment result</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
+    .ok { border: 1px solid #22c55e; background: #f0fdf4; color: #14532d; padding: 1rem; border-radius: 8px; }
+    .bad { border: 1px solid #f97316; background: #fff7ed; color: #9a3412; padding: 1rem; border-radius: 8px; }
+    code { word-break: break-all; font-size: 0.85rem; }
+    .muted { color: #666; font-size: 0.9rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  {% if success %}
+    <h1>Payment successful</h1>
+    <div class="ok">
+      Your JazzCash payment was verified. Appointment <strong>#{{ appointment.id }}</strong> is <strong>confirmed</strong>.
+    </div>
+  {% else %}
+    <h1>Payment not completed</h1>
+    <div class="bad">
+      {% if message %}
+        {{ message }}
+      {% else %}
+        Something went wrong or the transaction was declined. Your appointment stays <strong>pending</strong>.
+      {% endif %}
+      {% if response_code %}<br><small>Response code: <code>{{ response_code }}</code></small>{% endif %}
+      {% if response_message %}<br><small>{{ response_message }}</small>{% endif %}
+      {% if hash_ok != None and not hash_ok %}
+        <p class="muted">Security warning: returned hash did not validate — treating as failure.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+  {% if payment %}
+    <p class="muted">Payment record <strong>#{{ payment.id }}</strong> — status {{ payment.status }} — TXN {{ payment.merchant_txn_ref }}.</p>
+  {% endif %}
+</body>
+</html>

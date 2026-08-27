@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JazzCash — Pay now</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 2rem auto; padding: 0 1rem; }
+    .banner { background: #1a4d8f; color: #fff; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
+    .warn { background: #fffbeb; border: 1px solid #fbbf24; color: #78350f; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.85rem; }
+    .help { background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; padding: 1rem; border-radius: 8px; margin-top: 1.5rem; font-size: 0.82rem; line-height: 1.45; }
+    .help h2 { font-size: 0.95rem; margin: 0 0 0.5rem; color: #0f172a; }
+    code { word-break: break-all; font-size: 0.78rem; background: #e2e8f0; padding: 2px 4px; border-radius: 4px; }
+    .muted { color: #555; font-size: 0.9rem; }
+    summary { cursor: pointer; font-weight: 700; color: #0f172a; margin-bottom: 0.35rem; }
+    table.tests { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin: 0.65rem 0; }
+    table.tests th, table.tests td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; vertical-align: top; }
+    table.tests th { background: #f1f5f9; font-weight: 600; }
+    button { background: #e2231a; color: #fff; border: 0; padding: 0.85rem 1.5rem; font-size: 1rem; border-radius: 8px; cursor: pointer; font-weight: 700; }
+    button:hover { filter: brightness(0.95); }
+  </style>
+</head>
+<body>
+  <h1>JazzCash checkout</h1>
+  {% if test_mode %}
+    <div class="banner">TEST MODE — request goes to JazzCash sandbox.</div>
+  {% endif %}
+
+  <p class="muted">Appointment <strong>#{{ appointment.id }}</strong></p>
+  <p><strong>{{ payment.amount_major }} PKR</strong></p>
+  <p class="muted">Transaction reference <code>{{ payment.merchant_txn_ref }}</code> — search this number in Merchant Portal filters if a report accepts “Transaction Reference”.</p>
+  <p class="muted"><strong>Return URL:</strong> <code>{{ pp_return_url }}</code></p>
+
+  {% if localhost_return_warning %}
+    <div class="warn">
+      JazzCash sandbox often <strong>rejects localhost</strong> as <code>pp_ReturnURL</code>. Use a public URL (e.g. ngrok/tunnel),
+      register it with JazzCash sandbox if required, then set <code>PUBLIC_BASE_URL</code> in your backend env accordingly.
+    </div>
+  {% endif %}
+
+  <p class="muted">POST target: <code>{{ gateway_url }}</code></p>
+  <p class="muted">Click <strong>Pay Now</strong> to send your browser POST to JazzCash.</p>
+
+  <form action="{{ gateway_url }}" method="post">
+    {% for field_name, field_value in fields.items %}
+      <input type="hidden" name="{{ field_name }}" value="{{ field_value }}" />
+    {% endfor %}
+    <button type="submit">Pay Now</button>
+  </form>
+
+  {% if test_mode %}
+  <details class="help" open>
+    <summary>JazzCash sandbox test credentials (cards + wallet)</summary>
+    <p class="muted" style="margin-top: 0">Use these <strong>on the JazzCash sandbox page after you click Pay Now</strong>. They only apply at <code>https://sandbox.jazzcash.com.pk/</code>, not production.</p>
+    <p>After you <strong>complete</strong> a payment on sandbox, Merchant Portal APIs / call logs usually start showing rows for that session.</p>
+
+    <p><strong>Debit / Credit card — approved</strong></p>
+    <table class="tests">
+      <thead><tr><th>Card</th><th>Expiry</th><th>CVV</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td><code>5123450000000008</code></td><td>01/39</td><td>100</td><td>Approved</td></tr>
+        <tr><td><code>2223000000000008</code></td><td>01/39</td><td>100</td><td>Approved</td></tr>
+        <tr><td><code>4508750015741019</code></td><td>01/39</td><td>100</td><td>Approved</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>Card — failure scenarios</strong></p>
+    <ul class="muted" style="margin: 0 0 0.5rem 1rem;">
+      <li>Expiry <strong>05/39</strong> → declined</li>
+      <li>Expiry <strong>04/27</strong> → expired card</li>
+    </ul>
+
+    <p><strong>Mobile wallet (JazzCash account)</strong></p>
+    <table class="tests">
+      <thead><tr><th>Mobile</th><th>CNIC last 6</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td><code>03123456789</code></td><td><code>345678</code></td><td>Success</td></tr>
+        <tr><td><code>03123456780</code></td><td><code>345678</code></td><td>Authentication error</td></tr>
+        <tr><td>Other number</td><td><code>345678</code></td><td>Pending</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>MedTag backend mapping</strong></p>
+    <ul class="muted" style="margin: 0 0 0 1rem;">
+      <li>Callback must pass <strong>hash verification</strong> and <code>pp_ResponseCode == 000</code> — not “looks like success” without both.</li>
+      <li>Then: appointment <strong>confirmed</strong>, <code>payment_status</code> <strong>paid</strong> (JazzCash return handler).</li>
+      <li>Otherwise: this gateway <code>Payment</code> is <strong>failed</strong>; appointment stays as-is (<strong>pending</strong>) so the patient can retry.</li>
+    </ul>
+  </details>
+
+  <aside class="help">
+    <p><strong>Why “API Call Log” can stay empty:</strong> JazzCash usually shows a finalized row only after (1) <strong>Pay Now</strong> POSTs from this page to JazzCash, (2) you complete payment on <strong>their hosted page</strong>, and (3) JazzCash <strong>POSTs the result</strong> to your Return URL. Missing any step often means “no completed transaction yet”—finish a full sandbox payment first, wait for redirect back here, then refresh the merchant dashboard.</p>
+    <h2>Seeing “No Data Found” under Getting Started → API Call Log?</h2>
+    <p>That screen is mainly for JazzCash’s <strong>in-portal API test runner</strong> (where you paste JSON/SOAP and press Run).</p>
+    <p>For <strong>hosted checkout HTTP POST redirects</strong> from your website, JazzCash usually expects you to monitor <strong>Transaction Management / Merchant transaction reports</strong>, not necessarily that API Call Log.</p>
+    <p>Completing sandbox payment using the official test cards or wallet credentials above normally causes logs to populate for that attempt (scope depends on sandbox reporting).</p>
+    <p>Use the reference above; widen the sandbox date/time filter and confirm you logged in under the merchant that matches <strong>MC*</strong>.</p>
+    <p>Your own Django <strong>admin → Payments / Gateway logs</strong> prove the checkout page was rendered; inbound logs appear after JazzCash POSTs back to your return URL.</p>
+    <p>Still empty? Email <strong>merchantsupport@jazz.com.pk</strong> and ask whether hosted POST redirects appear in API Call Log or only in Reports.</p>
+  </aside>
+  {% endif %}
+</body>
+</html>

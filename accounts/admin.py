@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html # ✅ Import for creating links
-from .models import User, OTPCode, Doctor, Patient, Appointment
+from .models import User, OTPCode, Doctor, Patient, Appointment, DoctorPayoutMethod
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
@@ -111,6 +111,25 @@ class PatientAdmin(admin.ModelAdmin):
 # Optional: If you added Appointment model back
 @admin.register(Appointment)
 class AppointmentAdmin(admin.ModelAdmin):
+
     list_display = ['patient', 'doctor', 'date_time', 'status']
     list_filter = ['status', 'date_time']
     search_fields = ['patient__user__first_name', 'doctor__user__first_name']
+    list_display = ('id', 'patient', 'doctor', 'date_time', 'status', 'payment_status')
+    list_filter = ('status', 'payment_status')
+    search_fields = ('patient__user__first_name', 'doctor__user__first_name')
+
+
+# ✅ DOCTOR PAYOUT METHOD ADMIN
+@admin.register(DoctorPayoutMethod)
+class DoctorPayoutMethodAdmin(admin.ModelAdmin):
+    list_display = ('doctor', 'stripe_account_id', 'charges_enabled', 'details_submitted', 'created_at')
+    list_filter = ('charges_enabled', 'details_submitted', 'created_at')
+    search_fields = ('doctor__user__email', 'doctor__user__first_name', 'doctor__user__last_name', 'stripe_account_id')
+    readonly_fields = ('created_at',)
+    
+    def doctor(self, obj):
+        return f"Dr. {obj.doctor.user.first_name} {obj.doctor.user.last_name}"
+    doctor.short_description = 'Doctor Name'
+
+
