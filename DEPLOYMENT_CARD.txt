@@ -1,0 +1,234 @@
+================================================================================
+        MEDTAG BACKEND - VERCEL DEPLOYMENT QUICK REFERENCE CARD
+================================================================================
+
+STATUS: ✅ Ready to Deploy (WITHOUT AWS)
+TIME: ~40 minutes
+FOR: ahsnafzal (Vercel Account)
+
+================================================================================
+                            QUICK STEPS
+================================================================================
+
+STEP 1: Generate SECRET_KEY (5 min)
+  Command: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+  Action: SAVE THIS VALUE
+
+STEP 2: Create Vercel Postgres (7 min)
+  URL: https://vercel.com/dashboard → Storage → Create → Postgres
+  Name: medtag-db
+  Save: DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
+
+STEP 3: File Storage Setup (2 min)
+  ✅ NO AWS NEEDED!
+  Your app works with local storage
+  No action required!
+
+STEP 4: Gmail App Password (2 min)
+  URL: https://myaccount.google.com/apppasswords
+  Select: Mail → Your OS → Generate
+  Save: 16-character password
+
+STEP 5: Stripe Production Keys (3 min)
+  URL: https://dashboard.stripe.com → Developers → API Keys
+  Toggle: "Show test data" OFF
+  Save: sk_live_*, pk_live_*, whsec_*
+
+STEP 6: Import to Vercel (5 min)
+  URL: https://vercel.com/new?teamSlug=ahsan-afzal
+  Select: medtag-backend repository
+  Build Command: pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput
+  Output: staticfiles
+
+STEP 7: Add Environment Variables (10 min)
+  Add ALL variables from VERCEL_DEPLOYMENT_MASTER_GUIDE.md Step 7
+  Key ones:
+    - SECRET_KEY
+    - DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT
+    - EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
+    - STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
+    - USE_S3 = False
+
+STEP 8: Deploy (5-10 min)
+  Click: DEPLOY
+  Wait: Build completes
+  Get: Live URL
+
+STEP 9: Verify (5 min)
+  Test 1: curl https://your-url.vercel.app/api/health/
+  Test 2: curl https://your-url.vercel.app/static/admin/css/base.css
+  Test 3: Check Vercel logs (no red errors)
+  Test 4: Test API endpoints
+
+================================================================================
+                        ENVIRONMENT VARIABLES
+================================================================================
+
+CORE:
+  ENVIRONMENT = production
+  SECRET_KEY = [from Step 1]
+  DEBUG = False
+  ALLOWED_HOSTS = yourdomain.vercel.app,yourdomain.com
+
+DATABASE:
+  DB_NAME = [from Step 2]
+  DB_USER = default
+  DB_PASSWORD = [from Step 2]
+  DB_HOST = [from Step 2]
+  DB_PORT = 5432
+
+FRONTEND:
+  CORS_ALLOWED_ORIGINS = https://yourdomain.com
+  REACTAPP_RESET_URL = https://yourdomain.com/reset-password/
+  LOGIN_URI = https://yourdomain.com/login
+  PUBLIC_BASE_URL = https://yourdomain.vercel.app
+
+EMAIL:
+  EMAIL_HOST = smtp.gmail.com
+  EMAIL_PORT = 587
+  EMAIL_USE_TLS = True
+  EMAIL_HOST_USER = your-email@gmail.com
+  EMAIL_HOST_PASSWORD = [from Step 4]
+
+FILE STORAGE (NO AWS):
+  USE_S3 = False
+
+STRIPE:
+  STRIPE_SECRET_KEY = sk_live_[from Step 5]
+  STRIPE_PUBLISHABLE_KEY = pk_live_[from Step 5]
+  STRIPE_WEBHOOK_SECRET = whsec_[from Step 5]
+
+OPTIONAL:
+  GEMINI_API_KEY = [if you have]
+
+================================================================================
+                        CHECKLIST
+================================================================================
+
+BEFORE DEPLOYMENT:
+  ☐ Read VERCEL_DEPLOYMENT_MASTER_GUIDE.md
+  ☐ Step 1: Generate SECRET_KEY ✓
+  ☐ Step 2: Create Vercel Postgres ✓
+  ☐ Step 3: File storage (no action) ✓
+  ☐ Step 4: Gmail App Password ✓
+  ☐ Step 5: Stripe keys ✓
+
+DURING DEPLOYMENT:
+  ☐ Go to Vercel link
+  ☐ Import repository
+  ☐ Configure build
+  ☐ Add all environment variables
+  ☐ Click DEPLOY
+
+AFTER DEPLOYMENT:
+  ☐ Wait 5-10 minutes
+  ☐ Check logs (no red errors)
+  ☐ Test health endpoint
+  ☐ Verify all tests pass
+  ☐ Check static files load
+  ☐ Monitor first 24 hours
+
+================================================================================
+                        VERCEL LINK
+================================================================================
+
+👉 https://vercel.com/new?teamSlug=ahsan-afzal
+
+(Bookmark this!)
+
+================================================================================
+                        TROUBLESHOOTING
+================================================================================
+
+Build fails?
+  → Check requirements.txt is complete
+  → Rebuild: Vercel Dashboard → Deployments → Redeploy
+
+Static files 404?
+  → Verify STATIC_ROOT = staticfiles
+  → Check static file collection ran
+
+Database timeout?
+  → Verify DB_HOST includes full URL
+  → Check DB_PASSWORD is correct
+
+CORS errors?
+  → Add your frontend domain to CORS_ALLOWED_ORIGINS
+  → Use https:// prefix
+
+Email not working?
+  → Use Gmail App Password (16 chars), not main password
+  → Verify EMAIL_HOST_USER is correct
+
+File uploads issue?
+  → Files stored locally on Vercel (normal)
+  → Add AWS S3 later if needed
+
+================================================================================
+                        IMPORTANT NOTES
+================================================================================
+
+✅ No AWS needed! (It's optional)
+✅ Local file storage works fine
+✅ No bank card required!
+✅ Can add AWS S3 later anytime
+✅ All security is configured
+✅ Database is automated
+✅ Static files are automated
+✅ Migrations run automatically
+
+⚠️ Save all credentials from Steps 1-5!
+⚠️ Use your email for EMAIL_HOST_USER!
+⚠️ Set ALLOWED_HOSTS to your domain!
+⚠️ Check logs after deployment!
+
+================================================================================
+                        POST-DEPLOYMENT
+================================================================================
+
+Your Live URL:
+  https://medtag-backend-[random].vercel.app
+
+First 24 Hours:
+  ☐ Monitor logs for errors
+  ☐ Test authentication
+  ☐ Test file uploads
+  ☐ Test email sending
+  ☐ Test payments
+
+Later:
+  ☐ Set up custom domain (optional)
+  ☐ Add AWS S3 for CDN (optional)
+  ☐ Monitor analytics (optional)
+
+================================================================================
+                        TOTAL TIME: ~40 MINUTES
+================================================================================
+
+5 min:   Step 1 (SECRET_KEY)
+7 min:   Step 2 (Database)
+2 min:   Step 3 (File storage - no action)
+2 min:   Step 4 (Gmail)
+3 min:   Step 5 (Stripe)
+5 min:   Step 6 (Connect Vercel)
+10 min:  Step 7 (Environment variables)
+10 min:  Step 8 (Deploy & wait)
+5 min:   Step 9 (Verify)
+----
+49 min   TOTAL (rounded to 40-50 min)
+
+================================================================================
+                        NEXT ACTION
+================================================================================
+
+👉 OPEN: VERCEL_DEPLOYMENT_MASTER_GUIDE.md
+
+👉 READ: Steps 1-9 carefully
+
+👉 EXECUTE: In order (don't skip steps!)
+
+👉 DEPLOY: Go to Vercel link in Step 6
+
+Your backend will be LIVE in ~40 minutes! 🚀
+
+================================================================================

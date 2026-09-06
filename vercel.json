@@ -1,0 +1,18 @@
+{
+  "buildCommand": "python manage.py migrate && python manage.py collectstatic --noinput",
+  "devCommand": "python manage.py runserver",
+  "env": {
+    "PYTHONUNBUFFERED": "1"
+  },
+  "functions": {
+    "med_backend/wsgi.py": {
+      "runtime": "python3.12"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "med_backend/wsgi.py"
+    }
+  ]
+}

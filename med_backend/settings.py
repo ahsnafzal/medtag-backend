@@ -16,23 +16,27 @@ _apply_python314_django_fix()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Environment
+ENVIRONMENT = config('ENVIRONMENT', default='development')
+IS_PRODUCTION = ENVIRONMENT == 'production'
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = config('SECRET_KEY', default='dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default='False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ["*"]
+# Properly configure allowed hosts for production
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'daphne', ## for making live calls
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -45,18 +49,20 @@ INSTALLED_APPS = [
     'payments',
     'medtag',
     'ai',
-    #'rest_framework.authtoken',
-    'corsheaders', # Required for CORS
-    'channels', ## for making live calls 
-    #'allauth',
-    #'allauth.account',
-
+    'corsheaders',
 ]
+
+# Optional: Only use WebSocket features in development
+if not IS_PRODUCTION:
+    INSTALLED_APPS.extend([
+        'channels',
+    ])
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # For serving static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware', # <--- MOVED UP (Must be before CommonMiddleware)
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -64,30 +70,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# --- CORS SETTINGS (CRITICAL FOR FRONTEND CONNECTION) ---
-CORS_ALLOW_ALL_ORIGINS = True # Allows both laptops to connect without IP issues
-
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH", # Required for Edit Profile
-    "POST",
-    "PUT",
-]
-
-# Allow standard headers (Authorization is key for JWT)
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-]
+# --- CORS SETTINGS (PROPERLY CONFIGURED FOR PRODUCTION) ---
+# In production, set specific frontend origins
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000').split(',')
+if IS_PRODUCTION and '*' in CORS_ALLOWED_ORIGINS:
+    # Security: Never allow all origins in production
+    CORS_ALLOWED_ORIGINS = ['https://yourdomain.com']
 
 
 ROOT_URLCONF = 'med_backend.urls'
@@ -131,21 +119,20 @@ AUTHENTICATION_BACKENDS = [
 
 WSGI_APPLICATION = 'med_backend.wsgi.application'
 
-#for making live calls 
-ASGI_APPLICATION = 'med_backend.asgi.application'
-if DEBUG:
+# ASGI configuration (for WebSocket support in development only)
+if not IS_PRODUCTION:
+    ASGI_APPLICATION = 'med_backend.asgi.application'
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
     }
 else:
+    # In production (Vercel), use standard WSGI
+    ASGI_APPLICATION = 'med_backend.wsgi.application'
     CHANNEL_LAYERS = {
         "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [("127.0.0.1", 6379)],
-            },
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
     }
 
@@ -217,12 +204,44 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Media files (uploads)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  
-DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+# WhiteNoise configuration for production static file serving
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Media files (uploads) - Use S3 in production, local storage in development
+if IS_PRODUCTION:
+    # AWS S3 Configuration for production
+    USE_S3 = config('USE_S3', default='True').lower() in ('true', '1', 'yes')
+    if USE_S3:
+        # AWS settings
+        AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')
+        AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default='')
+        AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='')
+        AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='eu-north-1')
+        AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+        AWS_DEFAULT_ACL = 'public-read'
+        AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+        
+        # S3 static settings
+        STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+        STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+        
+        # S3 public media settings
+        DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+        MEDIA_ROOT = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+    else:
+        # Fallback to local storage
+        DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+        MEDIA_URL = '/media/'
+        MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+else:
+    # Development: use local file storage
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -279,16 +298,70 @@ JAZZCASH_RESULT_FRONTEND_URL = config(
     default='',
 )
 
-# Email Settings
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'cha84911@gmail.com'
-EMAIL_HOST_PASSWORD = 'huts ctmz stcj tpfn'
+# Email Settings - All from environment variables
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = int(config('EMAIL_PORT', default='587'))
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default='True').lower() in ('true', '1', 'yes')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
 # OTP Settings
 OTP_EXPIRY_MINUTES = 10
 
 REACTAPP_RESET_URL = config('REACTAPP_RESET_URL')
 LOGIN_URI = config('LOGIN_URI')
+
+# ============================================================================
+# SECURITY SETTINGS FOR PRODUCTION
+# ============================================================================
+
+if IS_PRODUCTION:
+    # HTTPS and Security Headers
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_SECURITY_POLICY = True
+    X_FRAME_OPTIONS = 'DENY'
+    
+    # Strict Transport Security (for HTTPS)
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # Referrer Policy
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# ============================================================================
+# LOGGING CONFIGURATION FOR PRODUCTION
+# ============================================================================
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO' if IS_PRODUCTION else 'DEBUG',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO' if IS_PRODUCTION else 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
