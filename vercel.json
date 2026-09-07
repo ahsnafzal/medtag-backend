@@ -1,18 +1,19 @@
 {
-  "buildCommand": "python manage.py migrate && python manage.py collectstatic --noinput",
+  "buildCommand": "python manage.py collectstatic --noinput",
   "devCommand": "python manage.py runserver",
   "env": {
     "PYTHONUNBUFFERED": "1"
   },
-  "functions": {
-    "med_backend/wsgi.py": {
-      "runtime": "python3.12"
-    }
-  },
-  "rewrites": [
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "med_backend/wsgi.py"
+      "src": "med_backend/wsgi.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "med_backend/wsgi.py"
     }
   ]
 }
