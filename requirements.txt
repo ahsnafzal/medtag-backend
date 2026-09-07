@@ -6,7 +6,7 @@ djangorestframework-simplejwt==5.3.1
 
 # ASGI & WebSocket Support (optional, for development)
 asgiref==3.8.1
-daphne==4.0.1
+daphne==4.1.2
 channels==4.1.0
 
 # Database
